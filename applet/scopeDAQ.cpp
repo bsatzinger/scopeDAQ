@@ -10,7 +10,9 @@ void loop();
 void establishContact();
 void recordTrace();
 void sendTrace();
+void waitForTrigger();
 int buffer[256];
+int triggerlevel = 512;
 
 void setup()
 {
@@ -33,6 +35,7 @@ void loop()
         
         if (inByte == 't')
         {
+          //waitForTrigger();
            recordTrace();
            sendTrace();
         }
@@ -84,6 +87,26 @@ void sendTrace()
    {
       Serial.println(buffer[i], DEC);
    } 
+}
+
+void waitForTrigger()
+{
+    //Wait for the level to fall below the trigger value
+    
+    while (analogRead(ANALOG1) > triggerlevel)
+    {
+        digitalWrite(LED, LOW);
+        digitalWrite(LED, HIGH);
+    }
+    
+    //Wait for the level to rise above the trigger value
+    while (analogRead(ANALOG1) < triggerlevel)
+    {
+        digitalWrite(LED, LOW);
+        digitalWrite(LED, HIGH);
+    }
+    
+    //Trigger happened, return
 }
 
 int main(void)
