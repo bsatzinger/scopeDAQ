@@ -4,6 +4,18 @@
 #define ANALOG1 1
 #define VERSION "0.001"
 
+// defines for setting and clearing register bits
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+
+
+
+
+
 #include "WProgram.h"
 void setup();
 void loop();
@@ -20,6 +32,12 @@ void setup()
   
   //Set up pins
   pinMode(LED, OUTPUT);
+  
+  // set prescale to 16
+  //Speeds up the A/D conversion
+  sbi(ADCSRA,ADPS2) ;
+  cbi(ADCSRA,ADPS1) ;
+  cbi(ADCSRA,ADPS0) ;
   
   establishContact();
   
