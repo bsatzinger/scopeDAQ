@@ -132,14 +132,17 @@ void recordTrace()
 {
   int i;
   
-  digitalWrite(LED, HIGH);
+  if (triggerEnable == 1)
+  {
+    digitalWrite(LED, HIGH);
+    waitForTrigger(); 
+    digitalWrite(LED, LOW);
+  }
   
   for (i = 0; i < BUFFERSIZE; i++)
   {
     buffer[i] = analogRead(ANALOG1);
   }
-  
-  digitalWrite(LED, LOW);
 }
 
 void sendTrace()
