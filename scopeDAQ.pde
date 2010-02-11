@@ -4,12 +4,13 @@
 #define ANALOG1 1
 #define VERSION "0.002"
 
-int buffer[256];
+int buffer[BUFFERSIZE];
 
-unsigned int triggerlevel = 512;
-int triggerEnable = 0;  //0 records a trace immediately
-
-int timer2start = 0;
+unsigned char timer2start = 0;
+unsigned int triggerlevel;
+unsigned int triggerEnable;
+unsigned int recordingTrace;
+unsigned int index;
 
 void setup()
 {
@@ -17,6 +18,8 @@ void setup()
   
   //Set up pins
   pinMode(LED, OUTPUT);
+  
+  SetupTimer2();
   
   establishContact();
   
@@ -32,7 +35,6 @@ void loop()
         
         if (inByte == 't')  //read trace
         {
-          //waitForTrigger();
            recordTrace();
            sendTrace();
         }
@@ -139,10 +141,17 @@ void recordTrace()
     digitalWrite(LED, LOW);
   }
   
-  for (i = 0; i < BUFFERSIZE; i++)
+  //Allow the ISR to record trace data
+  index = 0;
+  recordingTrace = 1;
+  
+  //Wait for the trace to get recorded before returning
+  while (recordingTrace == 1)
   {
-    buffer[i] = analogRead(ANALOG1);
+     delay(1); 
   }
+  
+  //Return
 }
 
 void sendTrace()
@@ -175,4 +184,55 @@ void waitForTrigger()
     }
     
     //Trigger happened, return
+}
+
+
+
+
+
+
+void SetupTimer2(void)
+{
+  
+  TCCR2A = 0;
+
+  //256 prescaling
+  TCCR2B = 1<<CS22 | 1<<CS21 | 0<<CS20; 
+
+  //Timer2 Overflow Interrupt Enable   
+  TIMSK2 = 1<<TOIE2;
+
+  //load the timer for its first cycle
+  TCNT2=timer2start; 
+}
+
+//Timer2 overflow interrupt vector handler
+
+ISR(TIMER2_OVF_vect)
+{
+  //Disable interrupts
+  cli();
+  
+  //Currently recording trace?
+  if(recordingTrace == 1)
+  {
+      
+      if (index > (BUFFERSIZE - 1))
+      {
+         //Done recording the trace
+         recordingTrace = 0;
+      }
+      else
+      {
+        buffer[index] = analogRead(ANALOG1);
+        index++;
+      }  
+  }
+  
+  
+  //Reset the counter for the next period
+  TCNT2=timer2start;    //TCNT2 = timr2start - TCNT2 might compensate for the (variable) ISR time
+
+  //Enable interrupts
+  sei();
 }
