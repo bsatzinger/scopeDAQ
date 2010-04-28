@@ -1,6 +1,6 @@
 #define BAUD 115200
 #define LED 13
-#define BUFFERSIZE 256
+#define BUFFERSIZE 768
 #define ANALOG1 1
 #define VERSION "0.002"
 
@@ -15,7 +15,7 @@ void waitForTrigger();
 void SetupTimer2(void);
 int buffer[BUFFERSIZE];
 
-unsigned char timer2start = 0;
+unsigned char timer2start = 254;
 unsigned int triggerlevel;
 unsigned int triggerEnable;
 unsigned int recordingTrace;
