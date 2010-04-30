@@ -24,12 +24,12 @@ void SetupTimer2(void);
 int buffer1[BUFFERSIZE];
 int buffer2[BUFFERSIZE];
 
-int ch1Input = 1;
+int ch1Input = 0;
 int ch2Input = 4;
 
-unsigned char timer2start = 253;
-unsigned int triggerlevel;
-unsigned int triggerEnable;
+unsigned char timer2start = 254;
+unsigned int triggerlevel = 512;
+unsigned int triggerEnable = 1;
 unsigned int recordingTrace;
 unsigned int index;
 
@@ -40,17 +40,17 @@ void setup()
   
   //prescale of 16
   //max sample rate 77k
-  sbi(ADCSRA, ADPS2);
-  cbi(ADCSRA, ADPS1);
-  cbi(ADCSRA, ADPS0);
+ // sbi(ADCSRA, ADPS2);
+  //cbi(ADCSRA, ADPS1);
+  //cbi(ADCSRA, ADPS0);
   
-  /*
+  
   //prescale of 8
   //max sample rate 153k
   cbi(ADCSRA, ADPS2);
   sbi(ADCSRA, ADPS1);
   sbi(ADCSRA, ADPS0);
-  */
+  
   
   //Set up pins
   pinMode(LED, OUTPUT);
@@ -291,7 +291,7 @@ void SetupTimer2(void)
   TCCR2A = 0;
 
   //256 prescaling
-  TCCR2B = 1<<CS22 | 1<<CS21 | 0<<CS20; 
+  TCCR2B = 1<<CS22 | 0<<CS21 | 1<<CS20; 
 
   //Timer2 Overflow Interrupt Enable   
   TIMSK2 = 1<<TOIE2;
