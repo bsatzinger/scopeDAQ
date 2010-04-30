@@ -4,9 +4,20 @@
 #define ANALOG1 1
 #define VERSION "0.002"
 
-int buffer[BUFFERSIZE];
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
 
-unsigned char timer2start = 0;
+int buffer1[BUFFERSIZE];
+int buffer2[BUFFERSIZE];
+
+int ch1Input = 0;
+int ch2Input = 4;
+
+unsigned char timer2start = 253;
 unsigned int triggerlevel;
 unsigned int triggerEnable;
 unsigned int recordingTrace;
@@ -16,8 +27,41 @@ void setup()
 {
   Serial.begin(BAUD);
   
+  
+  //prescale of 16
+  //max sample rate 77k
+  sbi(ADCSRA, ADPS2);
+  cbi(ADCSRA, ADPS1);
+  cbi(ADCSRA, ADPS0);
+  
+  /*
+  //prescale of 8
+  //max sample rate 153k
+  cbi(ADCSRA, ADPS2);
+  sbi(ADCSRA, ADPS1);
+  sbi(ADCSRA, ADPS0);
+  */
+  
   //Set up pins
   pinMode(LED, OUTPUT);
+  
+  pinMode(14, INPUT);
+  digitalWrite(14, HIGH);
+  
+    pinMode(15, INPUT);
+  digitalWrite(15, HIGH);
+  
+    pinMode(16, INPUT);
+  digitalWrite(16, HIGH);
+  
+    pinMode(17, INPUT);
+  digitalWrite(17, HIGH);
+  
+    pinMode(18, INPUT);
+  digitalWrite(18, HIGH);
+  
+    pinMode(19, INPUT);
+  digitalWrite(19, HIGH);
   
   SetupTimer2();
   
@@ -102,6 +146,33 @@ void loop()
         {
            Serial.println(triggerEnable, DEC); 
         }
+        else if (inByte = 'a')   //set channel A vertical scale
+        {
+           while (Serial.available() < 1){};
+           
+           int data = Serial.read();
+          
+          //data contains the analog input number
+          if (data == '0')
+          {
+             ch1Input = 0; 
+          }
+          else if (data == '1')
+          {
+             ch1Input = 1; 
+          }
+          else
+          {
+             ch1Input = 2; 
+          }
+        }
+        else if (inByte = 'b')
+        {
+          unsigned char data = Serial.read();
+          
+          //data contains the analog input number
+           ch2Input = data;
+        }
         else
         {
            Serial.print("Unknown Command\n"); 
@@ -162,7 +233,14 @@ void sendTrace()
     
    for (i = 0; i < BUFFERSIZE; i++)
    {
-      Serial.println(buffer[i], DEC);
+      Serial.println(buffer1[i], DEC);
+   } 
+   
+   Serial.println(BUFFERSIZE, DEC);
+    
+   for (i = 0; i < BUFFERSIZE; i++)
+   {
+      Serial.println(buffer2[i], DEC);
    } 
 }
 
@@ -187,7 +265,13 @@ void waitForTrigger()
 }
 
 
-
+void flashLED()
+{
+     digitalWrite(LED, HIGH);
+     delay(150);
+     digitalWrite(LED, LOW);
+     delay(150);
+}
 
 
 
@@ -224,7 +308,11 @@ ISR(TIMER2_OVF_vect)
       }
       else
       {
-        buffer[index] = analogRead(ANALOG1);
+ 
+          buffer1[index] = analogRead(ch1Input);
+
+          buffer2[index] = analogRead(ch2Input);
+
         index++;
       }  
   }
