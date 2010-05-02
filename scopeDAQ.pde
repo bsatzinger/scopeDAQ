@@ -18,8 +18,8 @@ int ch1Input = 0;
 int ch2Input = 4;
 
 unsigned char timer2start = 253;
-unsigned int triggerlevel;
-unsigned int triggerEnable;
+unsigned int triggerlevel = 512;
+unsigned int triggerEnable = 0;
 unsigned int recordingTrace;
 unsigned int index;
 
@@ -27,6 +27,7 @@ void setup()
 {
   Serial.begin(BAUD);
   
+  triggerlevel = 512;
   
   //prescale of 16
   //max sample rate 77k
@@ -72,6 +73,8 @@ void setup()
 void loop()
 {
     int inByte;
+  
+    
   
     if (Serial.available() > 0)
     {
@@ -204,12 +207,21 @@ void establishContact()
 void recordTrace()
 {
   int i;
+  int triggerResult = 0;
   
   if (triggerEnable == 1)
   {
     digitalWrite(LED, HIGH);
-    waitForTrigger(); 
+    triggerResult = waitForTrigger(); 
     digitalWrite(LED, LOW);
+  }
+  
+  //the trigger was aborted because of serial data
+  if (triggerResult == 5)
+  {
+      index = 0;
+      recordingTrace = 0;
+      return; 
   }
   
   //Allow the ISR to record trace data
@@ -244,24 +256,42 @@ void sendTrace()
    } 
 }
 
-void waitForTrigger()
+int waitForTrigger()
 {
     //Wait for the level to fall below the trigger value
+    unsigned int count = 0;
+    unsigned int count2 = 0;
     
-    while (analogRead(ANALOG1) > triggerlevel)
-    {
-        digitalWrite(LED, LOW);
-        digitalWrite(LED, HIGH);
+    
+    while ((analogRead(ch1Input) > triggerlevel) && (count2 < 3))
+    {         
+        count++;
+        
+        if (count > 65000)
+        {
+           count = 0;
+           count2++; 
+        }
     }
+    
+    count = 0;
+    count2 = 0;
     
     //Wait for the level to rise above the trigger value
-    while (analogRead(ANALOG1) < triggerlevel)
-    {
-        digitalWrite(LED, LOW);
-        digitalWrite(LED, HIGH);
+    while ((analogRead(ch1Input) < triggerlevel) && (count2 < 3))
+    {        
+        count++;
+        
+        if (count > 65000)
+        {
+           count = 0;
+           count2++; 
+        }
     }
     
-    //Trigger happened, return
+    //Trigger happened, return (possible timeout)
+    
+    return 0;  //success!
 }
 
 
