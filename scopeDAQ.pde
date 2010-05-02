@@ -22,7 +22,7 @@ int buffer2[BUFFERSIZE];
 int ch1Input = 0;
 int ch2Input = 4;
 
-unsigned char timer2start = 253;
+unsigned char timer2start = 254;
 unsigned int triggerlevel = 512;
 unsigned int triggerEnable = 0;
 unsigned int recordingTrace;
@@ -48,17 +48,17 @@ void setup()
   
   //prescale of 16
   //max sample rate 77k
-  sbi(ADCSRA, ADPS2);
-  cbi(ADCSRA, ADPS1);
-  cbi(ADCSRA, ADPS0);
+  //sbi(ADCSRA, ADPS2);
+  //cbi(ADCSRA, ADPS1);
+  //cbi(ADCSRA, ADPS0);
   
-  /*
+  
   //prescale of 8
   //max sample rate 153k
   cbi(ADCSRA, ADPS2);
   sbi(ADCSRA, ADPS1);
   sbi(ADCSRA, ADPS0);
-  */
+  
   
   //Set up pins
   pinMode(LED, OUTPUT);
@@ -392,7 +392,7 @@ ISR(TIMER2_OVF_vect)
   if(recordingTrace == 1)
   {
       
-      if (index > (BUFFERSIZE - 1))
+      if (index >= BUFFERSIZE)
       {
          //Done recording the trace
          recordingTrace = 0;
@@ -404,7 +404,7 @@ ISR(TIMER2_OVF_vect)
 
           buffer2[index] = analogRead(ch2Input);
 
-        index++;
+          index++;
       }  
   }
   
