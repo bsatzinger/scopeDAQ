@@ -3,6 +3,11 @@
 #define BUFFERSIZE 256
 #define ANALOG1 1
 #define VERSION "0.002"
+#define MSBMASK 0x8000
+
+#define SINE 0
+#define TRI 1
+#define OFF 2
 
 #ifndef cbi
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
@@ -22,6 +27,18 @@ unsigned int triggerlevel = 512;
 unsigned int triggerEnable = 0;
 unsigned int recordingTrace;
 unsigned int index;
+
+//Function Generator Pins
+int ledPin =  13;    // LED connected to digital pin 13
+unsigned int FSYNC = 2;
+unsigned int SCLK = 3;
+unsigned int SDATA = 4;
+unsigned int CTRL = 5;
+unsigned int CLK = 9;
+
+//function generator wave type
+int waveType = SINE;
+unsigned int waveFreq = 0x01E8;
 
 void setup()
 {
@@ -65,6 +82,8 @@ void setup()
   digitalWrite(19, HIGH);
   
   SetupTimer2();
+  
+  setupFuncGen();
   
   establishContact();
   
@@ -125,6 +144,48 @@ void loop()
            
            //The trigger level is 10 bits, not 16
            triggerlevel = triggerlevel & 0x03FF;
+        }
+        else if (inByte == 'f')  //set function generator frequency
+        {
+           while (Serial.available() < 2)
+           {
+               //do nothing
+           } 
+           
+           unsigned int lowByte = Serial.read();
+           unsigned int highByte = Serial.read();
+           
+           unsigned int freq = lowByte | (highByte << 8);
+           waveFreq = freq;
+           
+           configFuncGen(freq);
+        }
+        else if (inByte =='w')  //set wave type
+        {
+           while(Serial.available() < 1)
+          {
+             //wait
+          } 
+          
+          char w = Serial.read();
+          
+          if (w == '0')
+          {
+              waveType = SINE;
+              //sine wave 
+          }
+          else if (w == '1')
+          {
+             waveType = TRI;
+             //triangle wave 
+          }
+          else
+          {
+             waveType = OFF;
+             //off 
+          }
+          
+          configFuncGen(waveFreq);
         }
         else if (inByte == 'L') //print trigger level
         {
@@ -354,3 +415,122 @@ ISR(TIMER2_OVF_vect)
   //Enable interrupts
   sei();
 }
+
+//function generator... functions
+void setupFuncGen()   {                
+  // initialize the digital pin as an output:
+  pinMode(ledPin, OUTPUT);     
+  pinMode(FSYNC, OUTPUT);
+  pinMode(SCLK, OUTPUT);
+  pinMode(SDATA, OUTPUT);
+  pinMode(CTRL, OUTPUT);
+  pinMode(CLK, OUTPUT);  
+  
+
+ 
+  //sets  frequency of clock signal, output frequency is equal to
+  //Fout = 16 MHz/(2*prescaler*(1+OCR1A))
+  DDRB=0xFF;
+  TCCR1B = 0x09;        //enables CTC mode and sets prescaler to 1 (no prescaling)
+  TCCR1A = 0x40;        //toggles OC1A on compare match
+  OCR1AH = 0x00;        //sets bits 8-15 of Output Compare Register
+  OCR1AL = 0x01;        //sets bits 0-7 of Output Compare Register
+
+  unsigned int f = 0x01E8;  //b flat.  1st note in mizzou fight song
+  configFuncGen(f);
+}
+
+void configFuncGen(unsigned int freq)
+{
+  digitalWrite(FSYNC, HIGH);
+  digitalWrite(CTRL, LOW);
+  
+  unsigned int d = 0x07d7;
+  
+  //set wave type
+  if (waveType == SINE)
+  {
+    d = 0x07d7;
+  }
+  else if (waveType == TRI)
+  {
+    d = 0x05d7;
+  }
+  else
+  {
+    d = 0x03d7;
+  }
+  send16bits(d);                //sets up control bits in register Creg
+ 
+  d = 0x1002;
+  send16bits(d);                //sets register Nincr so the number of frequency increments is 2  
+ 
+  d = 0x2000;
+  send16bits(d);                //sets the value of the LSBs of register deltaF to 0 so the frequency increments will be 0 Hz
+ 
+  d = 0x3000;
+  send16bits(d);                //sets the value of the MSBs of register deltaF to 0 so the frequency increments will be 0 Hz
+ 
+  d = 0x4002;
+  send16bits(d);                //sets register Tint so that each frequency lasts for 2 output waveform cycles
+ 
+  unsigned int lsb = freq & 0x00FF;
+  unsigned int msb = (freq >> 8) & 0x00FF;
+  
+
+  
+
+  
+  d = 0xC000 | lsb | ((msb & 0x0F) << 8);
+
+  send16bits(d);                //sets the LSBs of register Fstart
+  
+//  Serial.print("\nb:");
+ 
+// delay(1);
+ 
+  d = 0xD000 | (msb >> 4);
+ // Serial.print(d, BIN);
+  send16bits(d);                //sets the MSBs of register Fstart
+ 
+  digitalWrite(CTRL, HIGH);     //starts the frequency generation
+}
+
+
+
+void send16bits(unsigned int data)
+{
+    //Set FSYNC = 0
+    digitalWrite(FSYNC, LOW);
+    digitalWrite(13, LOW);
+    //wait a short time
+    //delay(10);
+    
+    unsigned int i;
+    unsigned int bit1;
+    
+    
+    
+    for (i = 0; i < 16; i++)
+    {
+        bit1 = data & MSBMASK;
+       
+        if (bit1 != 0)
+        {
+            bit1 = 1;
+        }
+        
+        //Send data on falling edge
+        digitalWrite(SCLK, 1);
+        digitalWrite(SDATA, bit1);
+        digitalWrite(SCLK, 0);
+       
+       data = data << 1;
+    }
+    
+    //delay(10);
+    //set fsync = 1
+    digitalWrite(FSYNC, HIGH);
+    digitalWrite(13, HIGH);
+}
+
