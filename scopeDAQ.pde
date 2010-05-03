@@ -20,7 +20,7 @@ int buffer1[BUFFERSIZE];
 int buffer2[BUFFERSIZE];
 
 int ch1Input = 0;
-int ch2Input = 4;
+int ch2Input = 2;
 
 unsigned char timer2start = 254;
 unsigned int triggerlevel = 512;
@@ -40,6 +40,9 @@ unsigned int CLK = 9;
 int waveType = SINE;
 unsigned int waveFreq = 0x01E8;
 
+//variable for the timer2 ISR
+int modulus = 0;
+
 void setup()
 {
   Serial.begin(BAUD);
@@ -48,16 +51,17 @@ void setup()
   
   //prescale of 16
   //max sample rate 77k
-  //sbi(ADCSRA, ADPS2);
-  //cbi(ADCSRA, ADPS1);
-  //cbi(ADCSRA, ADPS0);
+  sbi(ADCSRA, ADPS2);
+  cbi(ADCSRA, ADPS1);
+  cbi(ADCSRA, ADPS0);
   
   
   //prescale of 8
   //max sample rate 153k
-  cbi(ADCSRA, ADPS2);
-  sbi(ADCSRA, ADPS1);
-  sbi(ADCSRA, ADPS0);
+  //cbi(ADCSRA, ADPS2);
+  //sbi(ADCSRA, ADPS1);
+  //sbi(ADCSRA, ADPS0);
+  
   
   
   //Set up pins
@@ -67,19 +71,21 @@ void setup()
   digitalWrite(14, HIGH);
   
     pinMode(15, INPUT);
-  digitalWrite(15, HIGH);
+  digitalWrite(15, LOW);
   
     pinMode(16, INPUT);
-  digitalWrite(16, HIGH);
+  digitalWrite(16, LOW);
   
     pinMode(17, INPUT);
-  digitalWrite(17, HIGH);
+  digitalWrite(17, LOW);
   
     pinMode(18, INPUT);
-  digitalWrite(18, HIGH);
+  digitalWrite(18, LOW);
   
     pinMode(19, INPUT);
-  digitalWrite(19, HIGH);
+  digitalWrite(19, LOW);
+  
+  setupAD();
   
   SetupTimer2();
   
@@ -87,6 +93,54 @@ void setup()
   
   establishContact();
   
+}
+
+void setupAD()
+{ 
+    //set adc enable bit
+    sbi(ADCSRA, ADEN);
+    
+    //set voltage reference to AVCC
+    cbi(ADMUX, REFS1);
+    sbi(ADMUX, REFS0);
+    
+    //set the default channel to analog0
+    //cbi(ADMUX, MUX3);
+    //cbi(ADMUX, MUX2);
+    //cbi(ADMUX, MUX1);
+    //cbi(ADMUX, MUX0);
+    
+    //set the output format byte order
+    //sbi(ADMUX, ADLAR);
+    
+    //turn power reduction off for ADC
+    cbi(PRR,PRADC);
+}
+
+ int readAD(int ch)
+{
+   //set adc enable bit
+    sbi(ADCSRA, ADEN);
+  
+    //turn power reduction off for ADC
+    cbi(PRR,PRADC);
+    
+    //set the channel
+    //ADMUX = (ADMUX & 0xFFF8) | (ch & 0x07);
+    ADMUX = (ADMUX & 0xFFF0) | ((byte) ch);
+    
+    //start the conversion
+    sbi(ADCSRA, ADSC);
+    
+    while ((ADCSRA & 0x40) == 1) { }  //waitfor conversion to finish
+    
+    //conversion finished
+    unsigned char low = ADCL;
+    unsigned char high = ADCH;
+    
+    
+    return ADCW;
+    //return ((int) high << 2) | ((int) low >> 6);
 }
 
 void loop()
@@ -285,6 +339,8 @@ void recordTrace()
       return; 
   }
   
+  setupAD();
+  
   //Allow the ISR to record trace data
   index = 0;
   recordingTrace = 1;
@@ -319,12 +375,16 @@ void sendTrace()
 
 int waitForTrigger()
 {
+    //setupAD();
+  
+    //readAD(ch1Input);
+  
     //Wait for the level to fall below the trigger value
     unsigned int count = 0;
     unsigned int count2 = 0;
     
     
-    while ((analogRead(ch1Input) > triggerlevel) && (count2 < 3))
+    while ((readAD(ch1Input) > triggerlevel) && (count2 < 8))
     {         
         count++;
         
@@ -339,7 +399,7 @@ int waitForTrigger()
     count2 = 0;
     
     //Wait for the level to rise above the trigger value
-    while ((analogRead(ch1Input) < triggerlevel) && (count2 < 3))
+    while ((readAD(ch1Input) < triggerlevel) && (count2 < 8))
     {        
         count++;
         
@@ -351,6 +411,8 @@ int waitForTrigger()
     }
     
     //Trigger happened, return (possible timeout)
+    
+    setupAD();
     
     return 0;  //success!
 }
@@ -372,7 +434,10 @@ void SetupTimer2(void)
   TCCR2A = 0;
 
   //256 prescaling
-  TCCR2B = 1<<CS22 | 1<<CS21 | 0<<CS20; 
+  //TCCR2B = 1<<CS22 | 1<<CS21 | 0<<CS20; 
+  
+  //128 prescaling
+  TCCR2B = 1<<CS22 | 0<<CS21 | 1<<CS20; 
 
   //Timer2 Overflow Interrupt Enable   
   TIMSK2 = 1<<TOIE2;
@@ -399,12 +464,28 @@ ISR(TIMER2_OVF_vect)
       }
       else
       {
- 
-          buffer1[index] = analogRead(ch1Input);
-
-          buffer2[index] = analogRead(ch2Input);
-
+             
+          //setupAD();
+        
+         if (modulus == 0)
+         {
+            buffer2[index] = readAD(1);
+            modulus = 1;
+         }
+         else
+         {
+          
+          buffer1[index] = readAD(0);
+          modulus = 0;
           index++;
+         }
+
+          //setupAD();
+
+
+         
+
+          
       }  
   }
   
