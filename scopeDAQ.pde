@@ -20,7 +20,7 @@ int buffer1[BUFFERSIZE];
 int buffer2[BUFFERSIZE];
 
 int ch1Input = 0;
-int ch2Input = 2;
+int ch2Input = 4;
 
 unsigned char timer2start = 254;
 unsigned int triggerlevel = 512;
@@ -264,7 +264,7 @@ void loop()
         {
            Serial.println(triggerEnable, DEC); 
         }
-        else if (inByte = 'a')   //set channel A vertical scale
+        else if (inByte == 'a')   //set channel A vertical scale
         {
            while (Serial.available() < 1){};
            
@@ -284,12 +284,25 @@ void loop()
              ch1Input = 2; 
           }
         }
-        else if (inByte = 'b')
+        else if (inByte == 'b')
         {
-          unsigned char data = Serial.read();
+          while (Serial.available() < 1){};
+           
+           int data = Serial.read();
           
           //data contains the analog input number
-           ch2Input = data;
+          if (data == '3')
+          {
+             ch2Input = 3; 
+          }
+          else if (data == '4')
+          {
+             ch2Input = 4; 
+          }
+          else
+          {
+             ch2Input = 5; 
+          }
         }
         else
         {
@@ -362,14 +375,14 @@ void sendTrace()
     
    for (i = 0; i < BUFFERSIZE; i++)
    {
-      Serial.println(buffer1[i], DEC);
+      Serial.println(buffer2[i], DEC);
    } 
    
    Serial.println(BUFFERSIZE, DEC);
     
    for (i = 0; i < BUFFERSIZE; i++)
    {
-      Serial.println(buffer2[i], DEC);
+      Serial.println(buffer1[i], DEC);
    } 
 }
 
@@ -384,7 +397,7 @@ int waitForTrigger()
     unsigned int count2 = 0;
     
     
-    while ((readAD(ch1Input) > triggerlevel) && (count2 < 8))
+    while ((analogRead(ch1Input) > triggerlevel) && (count2 < 8))
     {         
         count++;
         
@@ -399,7 +412,7 @@ int waitForTrigger()
     count2 = 0;
     
     //Wait for the level to rise above the trigger value
-    while ((readAD(ch1Input) < triggerlevel) && (count2 < 8))
+    while ((analogRead(ch1Input) < triggerlevel) && (count2 < 8))
     {        
         count++;
         
@@ -469,13 +482,13 @@ ISR(TIMER2_OVF_vect)
         
          if (modulus == 0)
          {
-            buffer2[index] = readAD(1);
+            buffer1[index] = readAD(ch1Input);
             modulus = 1;
          }
          else
          {
           
-          buffer1[index] = readAD(0);
+          buffer2[index] = readAD(ch2Input);
           modulus = 0;
           index++;
          }
